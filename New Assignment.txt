@@ -1,0 +1,86 @@
+// Procedure to reset objects
+proc createScene()
+{
+    file -f -new;
+    createObjects();
+    addAttribute();
+    expression -o "projectile" -s "moveObject()";    
+}
+
+
+// Procedure to create objects
+proc createObjects()
+{
+// Create and position Wall
+polyCube -n "wall" -h 50 -d 100;
+move 43.041 24 -19.740;
+// Create and position Floor
+polyCube -n "floor" -w 100 -d 100;
+move -6.959 0 -19.744;
+// Create and positon projectile
+polySphere -n "projectile"; 
+move -50 2 0;
+}
+
+
+// Procedure to add attributes to object
+proc addAttribute()
+{
+// add attributes to projectile
+addAttr -longName Velocity -nc 3 -at float3;
+        addAttr -longName velocityX -sn vX -at "float" -p Velocity -dv 5.0;
+        addAttr -longName velocityY -sn vY -at "float" -p Velocity -dv 1.0;
+        addAttr -longName velocityZ -sn vZ -at "float" -p Velocity;
+addAttr -longName Blast_Radius -dv 0.0;
+addAttr -longName Gravity_Force -dv 0.02;
+}
+
+
+proc moveObject()
+{
+    float $moveX = `getAttr "projectile.velocityX"` + `getAttr "projectile.translateX"`;
+    float $moveY = `getAttr "projectile.velocityY"` + `getAttr "projectile.translateY"`;
+    float $height = `getAttr "projectile.velocityY"` - `getAttr "projectile.Gravity_Force"`;
+    setAttr ("projectile.velocityY") $height;
+    move $moveX $moveY 0;
+}
+
+
+
+
+
+reset();
+
+
+// ######################################
+// ########  Build a window  ############
+// ######################################
+
+string $projectileScript = `window -title "Projectile Script"
+                            -menuBar true -sizeable true`;
+
+// Display Velocity Slider
+columnLayout -adj true;
+    frameLayout -label "Attributes";
+        rowColumnLayout;
+            string $velocityGroup = `floatSliderGrp 
+                                     -min 0 -label "Velocity" -field true`;
+            string $blastGroup = `floatSliderGrp 
+                                    -min 0 -label "Blast Radius" -field true`;
+            string $gravityGroup = `floatSliderGrp 
+                                    -min 0 -label "Gravity Force" -field true`;		    
+		setParent ..;
+	setParent ..;
+	
+
+// Window Option Buttons
+columnLayout;
+    rowLayout -nc 5;
+        button -label "Apply";
+        button -label "OK" -command "deleteUI $projectileScript";
+        button -label "Load...";
+        button -label "Save..." -command "fileDialog2";
+        button -label "Reset" -command "reset();";
+                                                  
+// Display Window
+showWindow $projectileScript;

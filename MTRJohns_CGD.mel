@@ -1,0 +1,262 @@
+// Procedure to reset/create scene
+proc createScene()
+{
+    // Create new scene file
+    file -new -force;
+    // Set camera start position
+    setAttr "persp.translateX" -10;
+    setAttr "persp.translateY" 120;
+    setAttr "persp.translateZ" 200;
+    setAttr "persp.rotateY" -10;
+    // Set playback speed
+    playbackOptions -e -playbackSpeed 0 -maxPlaybackSpeed 1;
+    playbackOptions -loop once;
+    // Increase maximum frame amount
+    playbackOptions -min 1 -max 200 ;
+    // Run starting procedures
+    createObjects();
+    addAttribute();
+    projectileShader();
+    applyButton();
+    // Run expression for projectile movement
+    expression -o "projectile" -s "projVec()";
+}
+
+
+
+// Procedure to create objects
+proc createObjects()
+{
+    // Create and position Wall
+    polyCube -n "wall" -h 300 -d 100;
+        move 43.041 150 -19.740;
+    // Create and position Floor
+    polyCube -n "floor" -w 100 -d 100;
+        move -6.959 0 -19.744;
+    // Create and positon projectile
+    polySphere -n "projectile"; 
+        move -50 4 0;
+}
+
+
+
+// Procedure to add attributes to object
+proc addAttribute()
+{
+    // add attributes to projectile
+    addAttr -longName Velocity -nc 3 -at float3;
+    addAttr -longName velocityX -sn vX -at "float" -p Velocity -dv 1.0;
+    addAttr -longName velocityY -sn vY -at "float" -p Velocity -dv 1.0;
+    addAttr -longName velocityZ -sn vZ -at "float" -p Velocity -dv 1.0;
+    addAttr -longName gravity_Force -dv 0.02;
+    addAttr -longName blast_Radius -dv 0.0;
+}
+
+
+
+// Procedure to turn sphere red on impact explosion
+//     Will need to remove hide projectile in the procedure projVec() to see this
+proc projectileShader()
+{
+    // Create Shader Material lambert named projetile1
+    shadingNode -asShader -n projectile1 lambert;
+    // Create shading group named projectile2
+    sets -renderable true -noSurfaceShader true -empty -name projectile2;
+    // Connect shader material and shanding group
+    connectAttr -f projectile1.outColor  projectile2.surfaceShader;
+    select -r projectile;
+    // Apply shader material to projectile
+    sets -e -forceElement projectile2;
+}
+
+
+
+// Procedure to apply velocity and gravity
+proc moveObject()
+{
+    // Create X velocity
+    float $moveX = `getAttr "projectile.velocityX"` + `getAttr "projectile.translateX"`;
+    // Create Y velocity
+    float $moveY = `getAttr "projectile.velocityY"` + `getAttr "projectile.translateY"`;
+    // Create gravity force lowering Y value by gravity_force amount
+    float $height = `getAttr "projectile.velocityY"` - `getAttr "projectile.gravity_Force"`;
+    setAttr ("projectile.velocityY") $height;
+    // Move projectile
+    move $moveX $moveY 0;
+}
+
+
+
+// Procedure to check collision on X and Y axis of the wall
+proc projVec()
+{
+    // Calculate distance between projectile and wall
+    float $projWallX = `getAttr "wall.translateX"` - `getAttr "projectile.translateX"`;
+    // If distance is less than velocity away from wall or more than wall (to ensure it does not pass to otherside of wall in one frame)
+    if ( $projWallX < `getAttr "projectile.velocityX"` || `getAttr "projectile.translateX"` > `getAttr "wall.translateX"` )
+    {
+       // Set bullet position to wall X position - 1
+       setAttr "projectile.translateX" (`getAttr "wall.translateX"` - 1);
+       // Stop projectile moving if hit wall X position
+       setAttr "projectile.velocityX" 0;
+       setAttr "projectile.velocityY" 0;
+       setAttr "projectile.gravity_Force" 0;
+       // Change projectile color if impact with wall occurs
+       setAttr "projectile1.color" 120 0 0;
+       hide projectile;
+       // Create Particles
+       blastRadius();
+       // Expression to move particles
+       expression -s "moveParticles()";
+    }
+    // If distance is less than velocity away from floor or more than floor (to ensure it does not pass to otherside of floor in one frame)
+    else if ( `getAttr "projectile.translateY"` <= `getAttr "floor.translateY"`)
+    {
+        setAttr "projectile.translateY" 1;
+        // Stop projectile moving if hit wall Y position
+        setAttr "projectile.velocityX" 0;
+        setAttr "projectile.velocityY" 0;
+        setAttr "projectile.gravity_Force" 0;
+        // Change projectile color if impact with wall occurs
+        setAttr "projectile1.color" 120 0 0;
+        hide projectile;
+        // Create Particles
+        blastRadius();
+        // Expression to move particles
+        expression -s "moveParticles()";
+        
+    }
+    // Else move projectile procedure
+    else
+    {
+        moveObject();
+    }
+}
+ 
+
+
+// Procedure to create amount of particles and set the range for blast radius
+proc blastRadius()
+{
+    
+    global int $blastRadius;
+    global int $particleAmount = 10;
+    // Projectile position
+    global float $projectilePosX;
+    global float $projectilePosY;
+    global float $projectilePosZ;
+    
+    // Counter variable
+    int $i = 0;
+    // Get collsion position of projectile
+    $projectilePosX = (`getAttr "projectile.translateX"` + 0.425);
+    $projectilePosY = `getAttr "projectile.translateY"`;
+    $projectilePosZ = `getAttr "projectile.translateZ"`;
+    // Set blast area to the value in Blast Radius
+    int $blastArea = $blastRadius;
+    // Create particle spheres with different positions within a range box
+    for($i; $i < $blastRadius * $particleAmount; ++$i)
+    {
+        // Create particle spheres
+        polySphere -n ("ParticleSphere" + $i) -r 0.075;
+        // Set position to impact explosion location
+        move $projectilePosX $projectilePosY $projectilePosZ;
+        // Apply attributes to each Particle Sphere
+        addAttr -longName Velocity -nc 3 -at float3;
+        addAttr -longName velocityX -sn vX -at "float" -p Velocity -dv (rand(-0.6 * $blastRadius, -0.9 * $blastRadius));
+        addAttr -longName velocityY -sn vY -at "float" -p Velocity -dv (rand(0.6 * $blastRadius, 0.9 * $blastRadius));
+        addAttr -longName velocityZ -sn vZ -at "float" -p Velocity -dv (rand(-0.6 * $blastRadius, 0.9 * $blastRadius));
+    }
+}
+
+
+
+// Procedure to move particles that were created in procedure blastRadius()
+proc moveParticles()
+{
+    global float $ParticleGravity;
+    global int $blastRadius;
+    global int $particleAmount = 10;
+    // Variables for particle positions and velocity values
+    float $projectilePosX;
+    float $projectilePosY;
+    float $projectilePosZ;
+    float $velX;
+    float $velY;
+    float $velZ;
+    // Counter variable
+    int $i = 0;
+    // Loop to move each particle using its current position, velocity and the global gravity setting
+    for($i; $i < $particleAmount; ++$i)
+    {
+        $projectilePosX = `getAttr ("ParticleSphere" + $i + ".translateX")`;
+        $projectilePosY = `getAttr ("ParticleSphere" + $i + ".translateY")`;
+        $projectilePosZ = `getAttr ("ParticleSphere" + $i + ".translateZ")`;
+        $velX = `getAttr ("ParticleSphere" + $i + ".velocityX")`;
+        $velY = `getAttr ("ParticleSphere" + $i + ".velocityY")`;
+        $velZ = `getAttr ("ParticleSphere" + $i + ".velocityZ")`;
+        float $moveX = $velX + $projectilePosX;
+        float $moveY = $velY + $projectilePosY;
+        float $height = $velY - $ParticleGravity;
+        setAttr ("ParticleSphere" + $i + ".translateX") $moveX;
+        setAttr ("ParticleSphere" + $i + ".translateY") $moveY;
+        setAttr ("ParticleSphere" + $i + ".velocityY") $height;
+        select -d;
+    }
+}
+
+
+
+// Procedure to apply values entered within the user interface
+proc applyButton()
+{
+    // Declare variables to set values to object
+    global string $velocityGroup;
+    global string $gravityGroup;
+    global string $blastGroup;
+    global int $blastRadius;
+    global float $ParticleGravity;
+    float $projVelocityX = `floatFieldGrp -q -v1 $velocityGroup`;
+    setAttr "projectile.velocityX" $projVelocityX;
+    float $projVelocityY = `floatFieldGrp -q -v2 $velocityGroup`;
+    setAttr "projectile.velocityY" $projVelocityY;
+    float $projVelocityZ = `floatFieldGrp -q -v3 $velocityGroup`;
+    setAttr "projectile.velocityZ" $projVelocityZ;
+    float $gravityForce = `floatSliderGrp -q -v $gravityGroup`;
+    setAttr "projectile.gravity_Force" $gravityForce;
+    $blastRadius = `intSliderGrp -q -v $blastGroup`;
+    setAttr "projectile.blast_Radius" $blastRadius;
+    // set gravity for particles to be useable when gravity set to zero on object
+    $ParticleGravity = `floatSliderGrp -q -v $gravityGroup`;
+}
+
+
+
+// ######################################
+// ########  Build a window  ############
+// ######################################
+string $rpgScript = `window -title "Rpg Script"
+                            -sizeable false`;
+	
+// Display Velocity Slider
+columnLayout -adj true;
+    frameLayout -label "Attributes";
+        rowColumnLayout;
+            $velocityGroup = `floatFieldGrp -label "Velocity" -nf 3 -v1 1.0 -v2 1.0 -v3 1.0`;
+            $blastGroup = `intSliderGrp -min 0 -max 5 -label "Blast Radius" -field true -v 1`;
+            $gravityGroup = `floatSliderGrp -min 0 -label "Gravity Force" -field true -v 0.02 -pre 3`;
+		setParent ..;
+	setParent ..;
+	
+// Window Option Buttons
+columnLayout;
+    rowLayout -nc 3;
+        button -label "Rebuild Scene" -command "createScene()";
+        button -label "Apply" -command "applyButton()";
+        button -label "Close" -command "deleteUI $rpgScript";
+                                     
+// Display Window
+showWindow $rpgScript;
+
+
+createScene();

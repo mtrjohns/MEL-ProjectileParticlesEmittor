@@ -1,0 +1,117 @@
+// Create Object
+CreatePolygonCylinder;
+string $myList[] = `ls -sl`;
+float $sliderGroupMaxValue = 100; // Maximum float slider value
+
+// add attributes
+addAttr -longName Velocity -nc 3 -at float3;
+        addAttr -longName velocityX -sn vX -at "float" -p Velocity -dv 1.0;
+        addAttr -longName velocityY -sn vY -at "float" -p Velocity -dv 1.0;
+        addAttr -longName velocityZ -sn vZ -at "float" -p Velocity;
+addAttr -longName Blast_Radius -dv 0.0;
+addAttr -longName Gravity_Force -dv 0.2;
+addAttr -longName Vapour_Trail_Density -dv 0.0;
+addAttr -longName Alpha_Blend_Fade -nc 3 -at float3;
+        addAttr -longName Alpha_Blend_FadeX -at "float" -p Alpha_Blend_Fade;
+        addAttr -longName Alpha_Blend_FadeY -at "float" -p Alpha_Blend_Fade;
+        addAttr -longName Alpha_Blend_FadeZ -at "float" -p Alpha_Blend_Fade;
+addAttr -longName Maximum_Value_Increase;
+
+
+proc moveObject()
+{
+    string $myList[] = `ls -sl`;
+    float $moveX = `getAttr $myList[0]".velocityX"` + `getAttr $myList[0]".translateX"`;
+    float $moveY = `getAttr $myList[0]".velocityY"` + `getAttr $myList[0]".translateY"`;
+    float $height = `getAttr $myList[0]".velocityY"` - `getAttr $myList[0]".Gravity_Force"`;
+    setAttr ($myList[0] + ".velocityY") $height;
+    //`setAttr ($myList[0] + ".velocityX")` + ;
+    move $moveX $moveY 0;
+}
+
+moveObject();
+//proc $P
+// X velocity
+
+
+// Y + velocity (everytime it loops)
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ######################################
+// ########  Build a window  ############
+// ######################################
+string $rpgScript = `window -title "Rpg Script"
+                            -menuBar true -sizeable true
+                            `;
+// Header menu
+menu -label "Create Object";
+    menuItem -label "Cylinder" -command "CreatePolygonCylinder";
+menu -label "Add Attribute";
+
+// Error Check Objects selected
+columnLayout -adj true;
+    frameLayout -label "Object Selected"
+                ;
+        rowLayout;
+        if($myList[1] != "") // Check correct amount of objects selected (1)
+        {
+            confirmDialog -title "Error"
+            -message "Too many objects selected. Select only select one object.";
+        }
+        else if($myList[0] == "") // Check user has selected an object
+        {
+            confirmDialog -title "Error"
+            -message "No object selected. Please select an object.";
+            text "No Object Selected.";
+        }
+        else // Display object name
+        {
+            text $myList;
+        }
+		
+		setParent ..;
+	setParent ..;
+	
+// Display Velocity Slider
+columnLayout -adj true;
+    frameLayout -label "Attributes";
+        rowColumnLayout;
+            string $velocityGroup = `floatSliderGrp -min 0 -max $sliderGroupMaxValue
+                                                  -label "Velocity" -field true`;
+            string $blastGroup = `floatSliderGrp -min 0 -max $sliderGroupMaxValue
+                                                  -label "Blast Radius" -field true`;
+            string $gravityGroup = `floatSliderGrp -min 0 -max $sliderGroupMaxValue
+                                                  -label "Gravity Force" -field true`;
+            string $vapourTrailGroup = `floatSliderGrp -min 0 -max $sliderGroupMaxValue
+                                                  -label "Vapour Trail Density" -field true`;
+            string $alphaBlendGroup = `floatSliderGrp -min 0 -max $sliderGroupMaxValue
+                                                  -label "Alpha Blend Fade Speed" -field true`;
+            string $maxValueGroup = `floatFieldGrp   -label "Maximum Value Increase" -v1 $sliderGroupMaxValue`;
+		    
+		setParent ..;
+	setParent ..;
+	
+
+// Window Option Buttons
+columnLayout;
+    rowLayout -nc 6;
+        button -label "Update";
+        button -label "OK";
+        button -label "Close" -command "deleteUI $rpgScript";
+        button -label "Load...";
+        button -label "Save..." -command "fileDialog2";
+        button -label "Restore to Default";
+                                                  
+// Display Window
+showWindow $rpgScript;
